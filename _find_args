@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+package=$1
+argument=$2
+
+$package --help | grep -e "$argument,"
