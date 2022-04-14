@@ -1,0 +1,28 @@
+#! /usr/bin/bash
+
+checkProcesses()
+{
+    eval string1="$1"
+    echo
+    echo "List of processes:"
+    ps aux | grep ${string1} | grep -v grep | grep -v 'kill_processes'
+    echo 
+}
+
+promptValue() 
+{
+    read -p "$1"": " answer
+}
+
+
+service="$1"
+checkProcesses "\${service}" 
+
+promptValue "R u sure about killing all of this processes? (y/n)"
+
+
+echo $service
+
+if [ "$answer" == "y" ]; then
+    ps aux | grep -ie $service | grep -v grep | awk '{print $2}' | xargs kill -9
+fi
