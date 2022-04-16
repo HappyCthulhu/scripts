@@ -2,4 +2,4 @@
 package=$1
 argument=$2
 
-$package --help | grep -e "$argument,"
+$package --help | egrep -i --regexp="(\s|\s--)$argument(\s{2,10}|,)(\w|\s)"
