@@ -1,0 +1,25 @@
+#!/bin/bash
+
+containers_count=$1
+output=$(docker ps -a -n $containers_count | egrep -o --regexp="^\S+")
+# другой вариант найти первое слово: '^(?:\S+)'
+
+set -f
+containers=(${output/\n})
+
+for i in "${!containers[@]}"
+do
+    docker rm  "${containers[i]}"
+done
+
+
+output=$(docker ps -a| grep -Po '(?<=^\w{12}\s{3}).+?(?=\s+)')
+set -f
+array=(${output/\n})
+
+for i in "${!output[@]}"
+do
+    docker rmi "${output[i]}"
+done
+
+#echo "$output"
