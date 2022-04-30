@@ -1,7 +1,8 @@
 #!/bin/bash
 
 containers_count=$1
-output=$(docker ps -a -n $containers_count | egrep -o --regexp="^\S+")
+output=$(docker ps -a -n $containers_count | egrep -o --regexp="^\S+" | grep -v CONTAINER)
+echo $output
 # другой вариант найти первое слово: '^(?:\S+)'
 
 set -f
