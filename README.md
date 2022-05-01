@@ -16,6 +16,6 @@ examples:
 `_docker_killer n`      
 this script remove last n containers and images, from which these containers were created  
 example:  
-_docker_killer 5` *# kill last 5 containers and images, from which these containers were created*  
+`_docker_killer 5` *# kill last 5 containers and images, from which these containers were created*  
 
 ---
