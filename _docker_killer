@@ -18,9 +18,8 @@ then
         docker rm  "${containers[i]}"
     done
 
-
-
     set -f
+    images=($images_str)
 
     for i in "${!images[@]}"
     do
