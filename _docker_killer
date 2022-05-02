@@ -15,7 +15,7 @@ do
 done
 
 
-images_str=$(docker ps -a -n 1 | grep -Po '(?<=^\w{12}\s{3}).+?(?=\s+)')
+images_str=$(docker ps -a -n $containers_count | grep -Po '(?<=^\w{12}\s{3}).+?(?=\s+)')
 
 echo "images: $images_str"
 
