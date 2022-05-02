@@ -13,7 +13,7 @@ then
 
     for i in "${!containers[@]}"
     do
-        echo "Удаляю контейнер ${containers[i]}"
+        echo "\nУдаляю контейнер ${containers[i]}"
         docker stop  "${containers[i]}"
         docker rm  "${containers[i]}"
     done
@@ -23,7 +23,7 @@ then
 
     for i in "${!images[@]}"
     do
-        echo "Удаляю image ${images[i]}"
+        echo "\nУдаляю image ${images[i]}"
         docker rmi -f "${images[i]}"
     done
 
@@ -40,7 +40,7 @@ then
 
     for i in "${!images[@]}"
     do
-        echo "Удаляю image ${images[i]}"
+        echo "\nУдаляю image ${images[i]}"
         docker rmi -f "${images[i]}"
     done
 
