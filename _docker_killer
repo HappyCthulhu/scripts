@@ -1,31 +1,50 @@
 #!/bin/bash
+if [[ $1 == '-c' ]]
+then
 
-containers_count=$1
-containers_str=$(docker ps -a -n $containers_count | egrep -o --regexp="^\S+" | grep -v CONTAINER)
-# другой вариант найти первое слово: '^(?:\S+)'
-
-set -f
-containers=(${containers_str/\n})
-
-for i in "${!containers[@]}"
-do
-    echo "Удаляю контейнер ${containers[i]}"
-    docker stop  "${containers[i]}"
-    docker rm  "${containers[i]}"
-done
+    containers_count=$2
+    containers_str=$(docker ps -a -n $containers_count | egrep -o --regexp="^\S+" | grep -v CONTAINER)
+    # другой вариант найти первое слово: '^(?:\S+)'
 
 
-images_str=$(docker ps -a -n $containers_count | grep -Po '(?<=^\w{12}\s{3}).+?(?=\s+)')
+    set -f
+    containers=(${containers_str/\n})
 
-echo "images: $images_str"
+    for i in "${!containers[@]}"
+    do
+        echo "Удаляю контейнер ${containers[i]}"
+        docker stop  "${containers[i]}"
+        docker rm  "${containers[i]}"
+    done
 
-set -f
-images=($images_str)
 
-for i in "${!images[@]}"
-do
-    echo "Удаляю image ${images[i]}"
-    docker rmi -f "${images[i]}"
-done
+    images_str=$(docker ps -a -n $containers_count | grep -Po '(?<=^\w{12}\s{3}).+?(?=\s+)')
 
-#echo "$output"
+    set -f
+
+    for i in "${!images[@]}"
+    do
+        echo "Удаляю image ${images[i]}"
+        docker rmi -f "${images[i]}"
+    done
+
+elif [[ $1 == '-i' ]]
+then
+
+    images_count=$2
+
+    images_str=$(docker images | grep -v REPOSITORY |  head -n $images_count | grep -Po '(?<=\s{21})\w+(?=\s{3}\S)')
+
+
+    set -f
+    images=($images_str)
+
+    for i in "${!images[@]}"
+    do
+        echo "Удаляю image ${images[i]}"
+        docker rmi -f "${images[i]}"
+    done
+
+
+
+fi
