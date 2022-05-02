@@ -21,7 +21,6 @@ echo "images: $images_str"
 
 set -f
 images=($images_str)
-echo "images $images"
 
 for i in "${!images[@]}"
 do
