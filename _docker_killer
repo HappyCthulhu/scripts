@@ -4,6 +4,7 @@ then
 
     containers_count=$2
     containers_str=$(docker ps -a -n $containers_count | egrep -o --regexp="^\S+" | grep -v CONTAINER)
+    images_str=$(docker ps -a -n $containers_count | grep -Po '(?<=^\w{12}\s{3}).+?(?=\s+)')
     # другой вариант найти первое слово: '^(?:\S+)'
 
 
@@ -18,7 +19,6 @@ then
     done
 
 
-    images_str=$(docker ps -a -n $containers_count | grep -Po '(?<=^\w{12}\s{3}).+?(?=\s+)')
 
     set -f
 
