@@ -1,0 +1,2 @@
+#!/bin/bash
+nohup alacritty -e sudo openvpn --client --config /etc/openvpn/snake_vpn/USA_New_York.ovpn &
