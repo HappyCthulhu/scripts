@@ -1,0 +1,2 @@
+#!/usr/local/bin/fish
+alacritty --working-directory (pwd) & disown
