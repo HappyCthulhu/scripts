@@ -5,7 +5,7 @@ checkProcesses()
     eval string1="$1"
     echo
     echo "List of processes:"
-    pgrep -fl ${string1} 
+    pgrep -l ${string1} 
     echo 
 }
 
@@ -24,5 +24,5 @@ promptValue "R u sure about killing all of this processes? (y/n)"
 echo $service
 
 if [ "$answer" == "y" ]; then
-    pgrep -fl $service | awk '{print $1}' | xargs kill -9
+    pgrep -l $service | awk '{print $1}' | xargs kill -9
 fi
