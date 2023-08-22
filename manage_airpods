@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# AirPods MAC address
+mac_address="44:F0:9E:32:5F:F7"
+
+# Check if AirPods are connected
+connected=$(bluetoothctl info "$mac_address" | grep "Connected: yes")
+
+if [[ -z "$connected" ]]; then
+  # AirPods are not connected, so connect
+  echo "Connecting to AirPods..."
+  bluetoothctl connect "$mac_address"
+else
+  # AirPods are connected, so disconnect
+  echo "Disconnecting from AirPods..."
+  bluetoothctl disconnect "$mac_address"
+fi
