@@ -1,0 +1,17 @@
+#!/usr/bin/bash
+AVAILABLE_ARGS=("next", "previous")
+
+DIRECTION=$1
+
+if ! [[ ${AVAILABLE_ARGS[*]} =~ "$DIRECTION" ]]; then
+    echo "Wrong arg"
+    exit 1
+fi
+
+FP=~/.cache/copyq/last_event_id
+LAST_EVENT_ID=$(cat $FP)
+
+copyq $DIRECTION
+TEXT="$(xclip -sel clipboard -o)"
+
+notify-send -p -r $LAST_EVENT_ID "$TEXT" > $FP
