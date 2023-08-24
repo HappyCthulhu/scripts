@@ -1,0 +1,6 @@
+#!/usr/bin/bash
+TEXT_IN_BUFFER=$(xsel -b)
+
+echo $TEXT_IN_BUFFER
+
+notify-send -t 1000 -r 1 "$TEXT_IN_BUFFER"

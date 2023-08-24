@@ -16,5 +16,5 @@ NOTIF_ID=1
 copyq $DIRECTION
 TEXT="$(xclip -sel clipboard -o)"
 
-PID=$(notify-send -p -r $NOTIF_ID "$TEXT")
+PID=$(notify-send -t 1000 -r $NOTIF_ID "$TEXT")
 
