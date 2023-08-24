@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-TEXT_IN_BUFFER=$(xsel -b)
+TEXT_IN_BUFFER=$(xsel -bo)
 
 echo $TEXT_IN_BUFFER
 
