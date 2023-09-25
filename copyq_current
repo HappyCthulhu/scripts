@@ -1,6 +1,14 @@
 #!/usr/bin/bash
-TEXT_IN_BUFFER=$(xsel -bo)
+TYPE="$(xclip -selection clipboard -t TARGETS -o)"
 
-echo $TEXT_IN_BUFFER
-
-notify-send -t 1000 -r 1 "$TEXT_IN_BUFFER"
+# Проверяем тип данных в буфере обмена
+if [[ $TYPE == *"image/png"* ]]; then
+  # Если тип данных - изображение
+  TEMP_FILE=$(mktemp --suffix=.png)
+  xclip -t image/png -o > "$TEMP_FILE"
+  notify-send -t 1000 -i $TEMP_FILE -h int:clip_height:1000 pic clip
+else
+  TEXT_IN_BUFFER=$(xsel -bo)
+  echo $TEXT_IN_BUFFER
+  notify-send -t 1000 -r 1 "$TEXT_IN_BUFFER"
+fi

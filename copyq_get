@@ -14,7 +14,16 @@ fi
 NOTIF_ID=1
 
 copyq $DIRECTION
-TEXT="$(xclip -sel clipboard -o)"
+TYPE="$(xclip -selection clipboard -t TARGETS -o)"
 
-PID=$(notify-send -t 1000 -r $NOTIF_ID "$TEXT")
-
+# Проверяем тип данных в буфере обмена
+if [[ $TYPE == *"image/png"* ]]; then
+  # Если тип данных - изображение
+  TEMP_FILE=$(mktemp --suffix=.png)
+  xclip -t image/png -o > "$TEMP_FILE"
+  notify-send -t 1000 -r $NOTIF_ID -i $TEMP_FILE -h int:clip_height:1000 pic clip
+#  feh --bg-scale $TEMP_FILE
+else
+  TEXT="$(xclip -sel clipboard -o)"
+  notify-send -t 1000 -r $NOTIF_ID "$TEXT"
+fi
