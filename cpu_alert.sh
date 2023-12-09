@@ -11,7 +11,7 @@ do
   
   # Check if memory usage exceeds the threshold
   if (( $(echo "$memUsage > $THRESHOLD" | bc -l) )); then
-    notify-send "High Memory Usage" "Your memory usage is at ${memUsage}%!"
+    notify-send "High Memory Usage" "Your memory usage is at ${memUsage}%!" -u critical
   fi
 
   # Sleep for some time
