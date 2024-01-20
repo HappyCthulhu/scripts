@@ -6,7 +6,8 @@
 
 lock() {
 	setxkbmap us 
-	betterlockscreen -l --show-layout
+	#betterlockscreen -l --show-layout
+	/usr/bin/dm-tool switch-to-greeter
 	}
 
 case "$1" in
