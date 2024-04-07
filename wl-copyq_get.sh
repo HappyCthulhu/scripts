@@ -25,6 +25,9 @@ if [[ $TYPE == *"image/png"* ]]; then
 #  feh --bg-scale $TEMP_FILE
 else
   TEXT="$(wl-paste --type text/plain)"
+  # Проверяем длину текста и обрезаем, если необходимо
+  if [ ${#TEXT} -gt 1000 ]; then
+    TEXT="${TEXT:0:1000}..." # Добавляем многоточие в конец, чтобы указать на обрезку
+  fi
   notify-send -t 1000 -r $NOTIF_ID "$TEXT"
 fi
-
