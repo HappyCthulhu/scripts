@@ -1,4 +1,4 @@
-window_exists=$(swaymsg -t get_tree | jq '[recurse(.nodes[]?, .floating_nodes[]?) | select(.name == "Telegram Web")] | length > 0')
+window_exists=$(swaymsg -t get_tree | jq '[recurse(.nodes[]?, .floating_nodes[]?) | select(.app_id == "chrome-web.telegram.org__k_-Default")] | length > 0')
 
 if [ "$window_exists" = "false" ]; then
     google-chrome-stable --app=https://web.telegram.org/k/

@@ -2,7 +2,7 @@
 # This script monitors memory usage and sends a notification if it exceeds 95%
 
 # Threshold for memory usage
-THRESHOLD=95
+THRESHOLD=99
 
 while :
 do 
