@@ -2,16 +2,65 @@
 
 # AirPods MAC address
 mac_address="44:F0:9E:32:5F:F7"
+AIRPODS_NAME="bluez_output.44_F0_9E_32_5F_F7.1" # Достаем "Name" интересующего устройства из pactl list
+FAMILY_NAME="alsa_output.pci-0000_04_00.6.HiFi__Speaker__sink"
+
+# Function to get sink ID by name
+get_sink_id() {
+    local device_name="$1"
+    pactl list short sinks | grep "$device_name" | awk '{print $1}'
+}
+
+# Function to set the default sink and move all sink inputs
+set_default_sink() {
+    local device_name="$1"
+
+    # Ждем, пока id появится в output
+    local device_id=""
+    while [ -z "$device_id" ]; do
+        device_id=$(get_sink_id "$device_name")
+        if [ -z "$device_id" ]; then
+            echo "Waiting for device ID for $device_name..."
+            sleep 1
+        fi
+    done
+    
+    if [ -n "$device_id" ]; then
+        echo "Делаем уйстроство $device_name дефолтным"
+        pactl set-default-sink "$device_id"
+        
+        # Все активные выводы звука переставляем на устройство
+        for sink_input in $(pactl list sink-inputs | grep "Sink Input" | awk '{print $3}' | sed 's/#//'); do
+            pactl move-sink-input $sink_input "$device_id"
+        done
+    else
+        echo "Device $device_name not found."
+    fi
+}
 
 # Check if AirPods are connected
 connected=$(bluetoothctl info "$mac_address" | grep "Connected: yes")
 
 if [[ -z "$connected" ]]; then
-  # AirPods are not connected, so connect
-  echo "Connecting to AirPods..."
-  bluetoothctl connect "$mac_address"
+    # AirPods are not connected, so connect
+    echo "Connecting to AirPods..."
+    bluetoothctl connect "$mac_address"
+    
+    # Wait for AirPods to connect by polling the connection status
+    echo "Waiting for AirPods to connect..."
+    while [[ -z "$connected" ]]; do
+        sleep 1
+        connected=$(bluetoothctl info "$mac_address" | grep "Connected: yes")
+    done
+    
+    # Set audio output to AirPods
+    set_default_sink "$AIRPODS_NAME"
+
 else
-  # AirPods are connected, so disconnect
-  echo "Disconnecting from AirPods..."
-  bluetoothctl disconnect "$mac_address"
+    # AirPods are connected, so disconnect
+    echo "Disconnecting from AirPods..."
+    bluetoothctl disconnect "$mac_address"
+    
+    # Set audio output to Family
+    set_default_sink "$FAMILY_NAME"
 fi
