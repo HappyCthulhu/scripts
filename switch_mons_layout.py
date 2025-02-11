@@ -10,6 +10,7 @@ function show_help {
     echo "Опции:"
     echo "  -d, --daemon        Запуск в режиме демона, создающего файл FIFO"
     echo "  -s, --switch-to     Запуск rofi для выбора профиля и выполнения команд"
+    echo "  -c, --config NAME   Переключение на указанный профиль NAME"
     echo "  -h, --help          Показать это сообщение и выйти"
 }
 
@@ -39,11 +40,25 @@ function run_daemon {
 # Функция для выполнения команды по выбору пользователя
 function switch_to {
     selected=$(cat "$fifo" | rofi -dmenu -p "Select Command")
-    
+
     if [[ $selected == "enable output" ]]; then
         swaymsg "output * enable"
     else
         kanshictl switch "$selected"
+    fi
+}
+
+# Функция для установки указанного профиля
+function set_layout {
+    local layout_name="$1"
+
+    # Проверка, существует ли профиль в конфигурации kanshi
+    if grep -q "profile \"$layout_name\"" "$kanshi_config"; then
+        kanshictl switch "$layout_name"
+        echo "Переключение на профиль: $layout_name"
+    else
+        echo "Ошибка: Профиль \"$layout_name\" не найден в $kanshi_config"
+        exit 1
     fi
 }
 
@@ -54,6 +69,13 @@ case "$1" in
         ;;
     -s|--switch-to)
         switch_to
+        ;;
+    -c|--config)
+        if [[ -z "$2" ]]; then
+            echo "Ошибка: Не указан профиль для переключения."
+            exit 1
+        fi
+        set_layout "$2"
         ;;
     -h|--help)
         show_help
