@@ -1,48 +1,72 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 PASSWORD_STORE_DIR="${PASSWORD_STORE_DIR:-$HOME/.password-store}"
 clip_cmd="wl-copy"
 type_cmd="wtype"
 
 # --- Выбор записи ---
-entry=$(find "$PASSWORD_STORE_DIR" -name '*.gpg' \
-  | sed "s|$PASSWORD_STORE_DIR/||; s|.gpg$||" \
-  | rofi -dmenu -p "pass:" -i)
+mapfile -t entries < <(
+  find "$PASSWORD_STORE_DIR" -type f -name '*.gpg' \
+    | sed "s|$PASSWORD_STORE_DIR/||; s|.gpg$||" \
+    | sort
+)
 
-[ -z "$entry" ] && exit
+[[ ${#entries[@]} -eq 0 ]] && {
+  notify-send "❗ No entries in password-store"
+  exit 1
+}
+
+entry=$(printf "%s\n" "${entries[@]}" | rofi -dmenu -p "pass:" -i)
+[[ -z "$entry" ]] && exit 0
 
 # --- Извлекаем данные ---
 pass_data=$(pass show "$entry")
-password=$(echo "$pass_data" | head -n1)
-user=$(echo "$pass_data" | grep -i '^user:' | awk '{print $2}')
 
-# --- Выбор действия ---
-choice=$(echo -e "Copy password\nCopy username\nAutotype user+pass\nType only password\nType only username" \
+# пароль — первая строка
+password=${pass_data%%$'\n'*}
+
+# user: значение (регистронезависимо)
+user=$(printf '%s\n' "$pass_data" | sed -n 's/^user:[[:space:]]*//Ip')
+
+# если user не найден — пустая строка
+user=${user:-}
+
+# --- Меню действий ---
+choice=$(printf "%s\n" \
+  "Copy password" \
+  "Copy username" \
+  "Autotype user+pass" \
+  "Type only password" \
+  "Type only username" \
   | rofi -dmenu -p "Action:" -i)
 
+[[ -z "$choice" ]] && exit 0
+
+# --- Выполнение ---
 case "$choice" in
   "Copy password")
-    echo -n "$password" | $clip_cmd
-    notify-send "🔑 Password copied for $entry"
+    printf "%s" "$password" | $clip_cmd
+    notify-send "🔑 Password copied: $entry"
     ;;
+
   "Copy username")
-    echo -n "$user" | $clip_cmd
-    notify-send "👤 Username copied for $entry"
+    printf "%s" "$user" | $clip_cmd
+    notify-send "👤 Username copied: $entry"
     ;;
+
   "Autotype user+pass")
-    sleep 0.5
-    $type_cmd "$user"
-    $type_cmd -k tab
-    $type_cmd "$password"
-    $type_cmd -k enter
+    sleep 0.05
+    $type_cmd "$user<Tab>$password<Enter>"
     ;;
+
   "Type only password")
-    sleep 0.5
+    sleep 0.05
     $type_cmd "$password"
     ;;
+
   "Type only username")
-    sleep 0.5
+    sleep 0.05
     $type_cmd "$user"
     ;;
 esac
-
