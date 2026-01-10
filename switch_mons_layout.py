@@ -1,87 +1,126 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-fifo="/tmp/rofi_fifo"
-kanshi_config="$HOME/.config/kanshi/config"
+FIFO="/tmp/kanshi_rofi.fifo"
+KONFIG="$HOME/.config/kanshi/config"
+SLEEP_SEC=2
 
-# Функция для отображения справки
-function show_help {
-    echo "Использование: $0 [опции]"
-    echo
-    echo "Опции:"
-    echo "  -d, --daemon        Запуск в режиме демона, создающего файл FIFO"
-    echo "  -s, --switch-to     Запуск rofi для выбора профиля и выполнения команд"
-    echo "  -c, --config NAME   Переключение на указанный профиль NAME"
-    echo "  -h, --help          Показать это сообщение и выйти"
+# -----------------------------
+# HELP
+# -----------------------------
+show_help() {
+    cat <<EOF
+Usage: $(basename "$0") [options]
+
+Options:
+  -d, --daemon        Start daemon (keeps FIFO updated)
+  -s, --switch        Open rofi menu (client)
+  -c, --config NAME   Switch directly to kanshi profile NAME
+  -h, --help          Show this help and exit
+EOF
 }
 
-# Функция для запуска демона
-function run_daemon {
-    # Чтение конфигурации kanshi и создание списка профилей
-    layouts=()
-    while IFS= read -r line; do
-        if [[ $line == profile* ]]; then
-            layout=$(echo "$line" | awk '{print $2}' | tr -d '"')
-            layouts+=("$layout")
-        fi
-    done < "$kanshi_config"
+# -----------------------------
+# VALIDATION
+# -----------------------------
+[[ -f "$KONFIG" ]] || { echo "kanshi config not found: $KONFIG" >&2; exit 1; }
 
-    # Основной цикл демона
+# -----------------------------
+# GET LAYOUTS (no cache)
+# -----------------------------
+read_layouts() {
+    grep -E '^profile "' "$KONFIG" | awk '{print $2}' | tr -d '"'
+}
+
+# -----------------------------
+# DAEMON
+# -----------------------------
+run_daemon() {
+    rm -f "$FIFO"
+    mkfifo "$FIFO"
+
+    trap 'rm -f "$FIFO"; exit 0' INT TERM EXIT
+
     while true; do
         {
-            echo "enable output"
-            for layout in "${layouts[@]}"; do
-                echo "$layout"
-            done
-        } > "$fifo"
-        sleep 1
+            echo "🔆 dpms on"
+            echo "🎬 dpms off"
+            echo "🔄 reload kanshi"
+            read_layouts
+        } > "$FIFO"
+
+        sleep "$SLEEP_SEC"
     done
 }
 
-# Функция для выполнения команды по выбору пользователя
-function switch_to {
-    selected=$(cat "$fifo" | rofi -dmenu -p "Select Command")
-
-    if [[ $selected == "enable output" ]]; then
-        swaymsg "output * enable"
-    else
-        kanshictl switch "$selected"
-    fi
+# -----------------------------
+# ACTIONS
+# -----------------------------
+do_dpms_on() {
+    hyprctl dispatch dpms on
 }
 
-# Функция для установки указанного профиля
-function set_layout {
-    local layout_name="$1"
+do_dpms_off() {
+    hyprctl dispatch dpms off
+}
 
-    # Проверка, существует ли профиль в конфигурации kanshi
-    if grep -q "profile \"$layout_name\"" "$kanshi_config"; then
-        kanshictl switch "$layout_name"
-        echo "Переключение на профиль: $layout_name"
-    else
-        echo "Ошибка: Профиль \"$layout_name\" не найден в $kanshi_config"
+reload_kanshi() {
+    pkill kanshi || true
+    kanshi &
+}
+
+switch_layout() {
+    local name="$1"
+    if ! grep -qE "^profile \"$name\"" "$KONFIG"; then
+        echo "Profile '$name' not found" >&2
         exit 1
     fi
+    kanshictl switch "$name"
 }
 
-# Основной обработчик аргументов
-case "$1" in
+# -----------------------------
+# CLIENT (ROFI)
+# -----------------------------
+run_rofi() {
+    local selected
+    selected=$(cat "$FIFO" | rofi -dmenu -p "Display manager")
+
+    [[ -z "$selected" ]] && exit 0
+
+    case "$selected" in
+        "🔆 dpms on")
+            do_dpms_on
+            ;;
+        "🎬 dpms off")
+            do_dpms_off
+            ;;
+        "🔄 reload kanshi")
+            reload_kanshi
+            ;;
+        *)
+            switch_layout "$selected"
+            ;;
+    esac
+}
+
+# -----------------------------
+# CLI
+# -----------------------------
+case "${1:-}" in
     -d|--daemon)
         run_daemon
         ;;
-    -s|--switch-to)
-        switch_to
+    -s|--switch)
+        run_rofi
         ;;
     -c|--config)
-        if [[ -z "$2" ]]; then
-            echo "Ошибка: Не указан профиль для переключения."
-            exit 1
-        fi
-        set_layout "$2"
+        [[ -n "${2:-}" ]] || { echo "Profile name required"; exit 1; }
+        switch_layout "$2"
         ;;
     -h|--help)
         show_help
         ;;
     *)
-        echo "Неизвестная опция: $1"
         show_help
         exit 1
         ;;
