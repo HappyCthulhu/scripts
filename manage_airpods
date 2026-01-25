@@ -2,7 +2,9 @@
 
 # AirPods MAC address
 mac_address="44:F0:9E:32:5F:F7"
-AIRPODS_NAME="bluez_output.44_F0_9E_32_5F_F7.1" # Достаем "Name" интересующего устройства из pactl list
+AIRPODS_NAME="bluez_output.44_F0_9E_32_5F_F7.1" 
+
+# Достаем "Name" интересующего устройства из pactl list
 FAMILY_NAME="alsa_output.pci-0000_04_00.6.HiFi__Speaker__sink"
 
 # Function to get sink ID by name
@@ -14,7 +16,6 @@ get_sink_id() {
 # Function to set the default sink and move all sink inputs
 set_default_sink() {
     local device_name="$1"
-
     # Ждем, пока id появится в output
     local device_id=""
     while [ -z "$device_id" ]; do
@@ -24,9 +25,9 @@ set_default_sink() {
             sleep 1
         fi
     done
-    
+
     if [ -n "$device_id" ]; then
-        echo "Делаем уйстроство $device_name дефолтным"
+        echo "Делаем устройство $device_name дефолтным"
         pactl set-default-sink "$device_id"
         
         # Все активные выводы звука переставляем на устройство
@@ -45,7 +46,15 @@ if [[ -z "$connected" ]]; then
     # AirPods are not connected, so connect
     echo "Connecting to AirPods..."
     bluetoothctl connect "$mac_address"
+    connection_result=$?
     
+    # Проверяем, получилось ли подключиться
+    if [[ $connection_result -ne 0 ]]; then
+        echo "Не удалось подключиться к AirPods. Переключаемся на Family."
+        set_default_sink "$FAMILY_NAME"
+        exit 1
+    fi
+
     # Wait for AirPods to connect by polling the connection status
     echo "Waiting for AirPods to connect..."
     while [[ -z "$connected" ]]; do
@@ -55,7 +64,6 @@ if [[ -z "$connected" ]]; then
     
     # Set audio output to AirPods
     set_default_sink "$AIRPODS_NAME"
-
 else
     # AirPods are connected, so disconnect
     echo "Disconnecting from AirPods..."
