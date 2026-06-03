@@ -1,0 +1,1 @@
+../../.local/bin/install-restore-input-vt.sh

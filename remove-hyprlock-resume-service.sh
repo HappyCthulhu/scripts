@@ -1,0 +1,1 @@
+../../.local/bin/remove-hyprlock-resume-service.sh
