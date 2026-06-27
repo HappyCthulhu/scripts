@@ -1,74 +1,101 @@
 #!/bin/bash
+set -euo pipefail
 
-# AirPods MAC address
-mac_address="44:F0:9E:32:5F:F7"
-AIRPODS_NAME="bluez_output.44_F0_9E_32_5F_F7.1" 
+# ---------------- CONFIG ----------------
 
-# Достаем "Name" интересующего устройства из pactl list
-FAMILY_NAME="alsa_output.pci-0000_04_00.6.HiFi__Speaker__sink"
+AIRPODS_MAC="44:F0:9E:32:5F:F7"
+AIRPODS_MAC_RE="44[_:]F0[_:]9E[_:]32[_:]5F[_:]F7"
 
-# Function to get sink ID by name
-get_sink_id() {
-    local device_name="$1"
-    pactl list short sinks | grep "$device_name" | awk '{print $1}'
+FAMILY_SINK="alsa_output.pci-0000_04_00.6.HiFi__Speaker__sink"
+
+MAX_ITER=100          # 100 × 50ms = 5s max (реально < 0.3s)
+SLEEP_STEP=0.05       # 50 ms
+
+# ---------------- LOGGING ----------------
+
+log() {
+    echo "[airpods] $*" >&2
 }
 
-# Function to set the default sink and move all sink inputs
-set_default_sink() {
-    local device_name="$1"
-    # Ждем, пока id появится в output
-    local device_id=""
-    while [ -z "$device_id" ]; do
-        device_id=$(get_sink_id "$device_name")
-        if [ -z "$device_id" ]; then
-            echo "Waiting for device ID for $device_name..."
-            sleep 1
+# ---------------- BLUETOOTH ----------------
+
+is_connected() {
+    bluetoothctl info "$AIRPODS_MAC" 2>/dev/null | grep -q "Connected: yes"
+}
+
+# ---------------- SINK DETECTION ----------------
+
+get_final_sink() {
+    pactl list short sinks \
+        | awk '{print $2}' \
+        | grep -E "bluez_output.*$AIRPODS_MAC_RE" \
+        | head -n 1 || true
+}
+
+# ---------------- FAST WAIT ----------------
+
+wait_for_final_sink_fast() {
+    for ((i=0; i<MAX_ITER; i++)); do
+        final="$(get_final_sink)"
+        if [[ -n "$final" ]]; then
+            log "Final sink detected: $final"
+            printf '%s\n' "$final"
+            return 0
         fi
+        sleep "$SLEEP_STEP"
     done
+    return 1
+}
 
-    if [ -n "$device_id" ]; then
-        echo "Делаем устройство $device_name дефолтным"
-        pactl set-default-sink "$device_id"
-        
-        # Все активные выводы звука переставляем на устройство
-        for sink_input in $(pactl list sink-inputs | grep "Sink Input" | awk '{print $3}' | sed 's/#//'); do
-            pactl move-sink-input $sink_input "$device_id"
-        done
-    else
-        echo "Device $device_name not found."
+# ---------------- AUDIO CONTROL ----------------
+
+set_default_sink() {
+    local sink="$1"
+
+    log "Setting default sink: $sink"
+    pactl set-default-sink "$sink"
+
+    pactl list short sink-inputs | awk '{print $1}' | while read -r input; do
+        pactl move-sink-input "$input" "$sink" || true
+    done
+}
+
+ensure_default_sink() {
+    local sink="$1"
+
+    set_default_sink "$sink"
+    sleep 0.2
+
+    if ! pactl info | grep -q "Default Sink: $sink"; then
+        log "Policy override detected, fixing default sink"
+        set_default_sink "$sink"
     fi
 }
 
-# Check if AirPods are connected
-connected=$(bluetoothctl info "$mac_address" | grep "Connected: yes")
+# ---------------- MAIN ----------------
 
-if [[ -z "$connected" ]]; then
-    # AirPods are not connected, so connect
-    echo "Connecting to AirPods..."
-    bluetoothctl connect "$mac_address"
-    connection_result=$?
-    
-    # Проверяем, получилось ли подключиться
-    if [[ $connection_result -ne 0 ]]; then
-        echo "Не удалось подключиться к AirPods. Переключаемся на Family."
-        set_default_sink "$FAMILY_NAME"
-        exit 1
-    fi
-
-    # Wait for AirPods to connect by polling the connection status
-    echo "Waiting for AirPods to connect..."
-    while [[ -z "$connected" ]]; do
-        sleep 1
-        connected=$(bluetoothctl info "$mac_address" | grep "Connected: yes")
-    done
-    
-    # Set audio output to AirPods
-    set_default_sink "$AIRPODS_NAME"
-else
-    # AirPods are connected, so disconnect
-    echo "Disconnecting from AirPods..."
-    bluetoothctl disconnect "$mac_address"
-    
-    # Set audio output to Family
-    set_default_sink "$FAMILY_NAME"
+if is_connected; then
+    log "Disconnecting AirPods"
+    bluetoothctl disconnect "$AIRPODS_MAC" >/dev/null || true
+    sleep 0.5
+    set_default_sink "$FAMILY_SINK"
+    exit 0
 fi
+
+log "Connecting AirPods"
+if ! bluetoothctl connect "$AIRPODS_MAC" >/dev/null; then
+    log "Bluetooth connect failed, fallback to family sink"
+    set_default_sink "$FAMILY_SINK"
+    exit 1
+fi
+
+log "Waiting for final AirPods sink (fast)"
+AIRPODS_SINK="$(wait_for_final_sink_fast)" || {
+    log "Final sink not detected, fallback"
+    set_default_sink "$FAMILY_SINK"
+    exit 1
+}
+
+ensure_default_sink "$AIRPODS_SINK"
+
+log "Done"

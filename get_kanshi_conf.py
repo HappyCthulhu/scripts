@@ -28,22 +28,66 @@ def load_monitors():
     # hyprctl -j monitors возвращает список словарей
     return [m for m in mons if m.get("active", True)]
 
-def gen_kanshi(monitors):
+def kanshi_output_criteria(m: dict, by_port: bool = False) -> str:
+    """Имя порта (DP-2) или идентификатор монитора (CYS ZEUSLAP *)."""
+    if by_port:
+        return m["name"]
+
+    make = (m.get("make") or "").strip()
+    model = (m.get("model") or "").strip()
+    if make and model:
+        # kanshi сопоставляет "Make Model Serial" через fnmatch; * вместо serial
+        return f"{make} {model} *"
+
+    description = (m.get("description") or "").strip()
+    if description:
+        parts = description.split()
+        if len(parts) >= 2:
+            return " ".join(parts[:-1]) + " *"
+        return description
+
+    return m["name"]
+
+def format_hz(hz: float) -> str:
+    if abs(hz - round(hz)) < 0.01:
+        return str(int(round(hz)))
+    return f"{hz:.2f}".rstrip("0").rstrip(".")
+
+def kanshi_mode(m: dict) -> str:
+    w = m["width"]
+    h = m["height"]
+    prefix = f"{w}x{h}@"
+    current_rr = float(m.get("refreshRate") or m.get("refresh", 60))
+
+    matched_hz = None
+    best_delta = None
+    for mode in m.get("availableModes", []):
+        if not mode.startswith(prefix):
+            continue
+        hz = float(mode[len(prefix) :].removesuffix("Hz"))
+        delta = abs(hz - current_rr)
+        if best_delta is None or delta < best_delta:
+            best_delta = delta
+            matched_hz = hz
+
+    if matched_hz is not None:
+        return f"mode {w}x{h}@{format_hz(matched_hz)}"
+
+    return f"mode {w}x{h}@{format_hz(current_rr)}"
+
+def gen_kanshi(monitors, by_port: bool = False):
     # Пример строки в kanshi:
-    #   output "DP-1" mode 2560x1440@144 position 0,0 scale 1.25
+    #   output "CYS ZEUSLAP *" mode 2560x1440@144 position 0,0 scale 1.25 enable
     #   + при необходимости transform/rotate
     lines = ['profile "new_config" {']
     for m in monitors:
-        name = m["name"]
-        w = m["width"]
-        h = m["height"]
-        rr = int(round(m.get("refreshRate") or m.get("refresh", 60)))
+        name = kanshi_output_criteria(m, by_port=by_port)
         x = m.get("x", 0)
         y = m.get("y", 0)
         scale = m.get("scale", 1)
         transform = int(m.get("transform", 0))
 
-        line = f'    output "{name}" mode {w}x{h}@{rr} position {x},{y} scale {scale}'
+        line = f'    output "{name}" {kanshi_mode(m)} position {x},{y} scale {scale}'
         rot = KANSHI_ROTATE.get(transform)
         if rot:
             # Для flipped-*, kanshi также понимает transform <value>.
@@ -51,6 +95,7 @@ def gen_kanshi(monitors):
                 line += f" transform {rot}"
             else:
                 line += f" rotate {rot}"
+        line += " enable"
         lines.append(line)
     lines.append("}")
     return "\n".join(lines)
@@ -82,13 +127,14 @@ def gen_hypr(monitors):
 def main():
     ap = argparse.ArgumentParser(description="Generate kanshi or Hyprland monitor config from current Hyprland state")
     ap.add_argument("--hypr", action="store_true", help="output Hyprland monitor= lines instead of kanshi profile")
+    ap.add_argument("--by-port", action="store_true", help="use port names (DP-2) instead of monitor identifiers (CYS ZEUSLAP *)")
     args = ap.parse_args()
 
     monitors = load_monitors()
     if args.hypr:
         print(gen_hypr(monitors))
     else:
-        print(gen_kanshi(monitors))
+        print(gen_kanshi(monitors, by_port=args.by_port))
 
 if __name__ == "__main__":
     main()
